@@ -3,6 +3,11 @@
 <head>
 	<meta charset="UTF-8">
 	<script type="text/javascript" src="https://swww.tokbox.com/webrtc/v2.0/js/TB.min.js"></script>
+	<style>
+	.OT_subscriber {
+		float:left;
+	}
+	</style>
 </head>
 <body>
   <div id="videos">
@@ -25,7 +30,7 @@
     
     function sessionConnectedHandler(event) {
       // Create publisher and start streaming into the session
-      var publisher = TB.initPublisher(apiKey, 'myPublisherDiv');
+      var publisher = TB.initPublisher(apiKey, 'myPublisherDiv', {width: 640, height:480});
       session.publish(publisher);
 
       // Subscribe to streams that were in the session when we connected
@@ -50,7 +55,7 @@
         document.body.appendChild(div);
 
         // Subscribe to the stream
-        session.subscribe(streams[i], div.id);
+        session.subscribe(streams[i], div.id, {width: 120, height: 90});
       }
     }
   </script>
