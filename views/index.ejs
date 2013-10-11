@@ -1,17 +1,20 @@
 <!DOCTYPE HTML>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<script type="text/javascript" src="https://swww.tokbox.com/webrtc/v2.0/js/TB.min.js"></script>
-	<style>
-	.OT_subscriber {
-		float:left;
-	}
-	</style>
+  <meta charset="UTF-8">
+  <script type="text/javascript" src="https://swww.tokbox.com/webrtc/v2.0/js/TB.min.js"></script>
+  <style>
+    .OT_subscriber {
+      float:left;
+    }
+  </style>
 </head>
 <body>
   <div id="videos">
-    <div id="myPublisherDiv"></div>
+    <div id="myPublisherDiv">
+      <input type="text" id="publisherName" value="Type you name" onclick="if(this.value == 'Type you name') this.value='' "/>
+      <input type="button" value="Connect" onclick="connectToStream()"/>
+    </div>
   </div>
   <script type="text/javascript">
     // Initialize API key, session, and token, generated from server side
@@ -26,11 +29,18 @@
     var session = TB.initSession(sessionId);
     session.addEventListener('sessionConnected', sessionConnectedHandler);
     session.addEventListener('streamCreated', streamCreatedHandler);
-    session.connect(apiKey, token);
+    
+    function connectToStream(e) {
+      session.connect(apiKey, token);
+    }
     
     function sessionConnectedHandler(event) {
       // Create publisher and start streaming into the session
-      var publisher = TB.initPublisher(apiKey, 'myPublisherDiv', {width: 640, height:480});
+      var publisher = TB.initPublisher(apiKey, 'myPublisherDiv', {
+        width: 640, 
+        height: 480, 
+        name: document.getElementById("publisherName").value
+      });
       session.publish(publisher);
 
       // Subscribe to streams that were in the session when we connected
@@ -55,7 +65,8 @@
         document.body.appendChild(div);
 
         // Subscribe to the stream
-        session.subscribe(streams[i], div.id, {width: 120, height: 90});
+        var subscriber = session.subscribe(streams[i], div.id, {width: 120, height: 90});
+        subscriber.setStyle({nameDisplayMode: 'on' })
       }
     }
   </script>
