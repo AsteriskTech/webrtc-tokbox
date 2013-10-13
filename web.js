@@ -8,7 +8,8 @@ var apikey = '43672442';
 var secretkey = '2d109ea79c71e50d427fa39c3cea3b36ad1c33db';
 var OpenTokObject = new OpenTokLibrary.OpenTokSDK(apikey, secretkey);
 
-// Create app, set ejs
+// Create app using express
+// Set ejs as template framework
 var app = express();
 app.use(express.static(__dirname + '/public'));
 app.set('views', __dirname + "/views");
@@ -24,7 +25,8 @@ function tokresponse(sessionId, req, res){
   // request for token per session, render stream
   var token = OpenTokObject.generateToken({session_id: sessionId});
   var data = {OpenTokKey:apikey, sessionId: sessionId, token:token};
-  console.log('teacher-console', req.params.teacher == undefined);
+  
+  // point to correct template based on teacher parameter
   res.render('stream-' + ((req.params.teacher != undefined) ? req.params.teacher : 'student'), data);
 }
 function createSession(req, res) {
@@ -49,5 +51,9 @@ app.get('/', function(request, response) {
   // basic render
   response.send('Hello World!');
 });
+
+// students general room
 app.get("/stream/:room", createSession);
+
+// teachers room with additional parameter
 app.get("/stream/:teacher/:room", createSession);

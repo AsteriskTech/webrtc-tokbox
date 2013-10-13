@@ -28,7 +28,7 @@
 </style>
 </head><body>
 <div id="videos">
-  <div id="myPublisherDiv" class="hero-unit">
+  <div id="connectWindow" class="hero-unit">
     <!-- number of available streams 16/20 -->
     <label id="connections">Available <span>20</span> seats</label>
     <input type="text" id="publisherName" value="Type you name" onclick="if(this.value == 'Type you name') this.value='' "/>
@@ -36,10 +36,8 @@
     <!-- turn on/off the video -->
     <ul class="nav nav-pills"><li class="active" id="video-check"><a href="#video=on" onclick="return false"><img src="http://s3.amazonaws.com/spweb-uploads/2012/10/Video_icon.png"/><span class="cross">/</span> Video</a></li></ul>
   </div>
+  <div id="teacher"></div>
   <div id="user"></div>
-  <div id="students">
-    
-  </div>
 </div>
 <link href="/bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen"/>
 <link href="/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet" media="screen"/>
@@ -59,7 +57,8 @@
   // Initialize session, set up event listeners, and connect
   var session = TB.initSession(sessionId);
   session.addEventListener('sessionConnected', sessionConnectedHandler);
-  session.addEventListener('streamCreated', streamCreatedHandler);
+  // Not required, because there is no auto subscription
+  //session.addEventListener('streamCreated', streamCreatedHandler);
   session.connect(apiKey, token);
   $('#video-check a').click(function(e) {
     $(this).parent().toggleClass('active');
@@ -77,10 +76,13 @@
       publishVideo: $('#video-check').hasClass('active')
     });
     session.publish(publisher);
+    // make sure to hide connection window after connection
+    $("#connectWindow").hide();
     
     // Subscribe to streams that were in the session when we connected
+    // Be sure to unsubscribe previewed teacher's view
     session.unsubscribe(subscriber);
-    subscribeToTeacher(stream, { width: 512, height: 384, div: $('#myPublisherDiv').get(0)});
+    subscribeToTeacher(stream, { width: 512, height: 384, div: $('#teacher').get(0)});
   }
   
   function sessionConnectedHandler(event) {
@@ -91,16 +93,15 @@
     // default preview the teacher
     // Create the div to put the subscriber element in to
     if(stream) {
-      var div = document.createElement('div');
-      div.setAttribute('id', 'stream-teacher');
-      $("#streams").append(div);
-      subscribeToTeacher(stream, { div: div });
+      var teacher = $('<div id="stream-teacher"></div>');
+      $("#streams").append(teacher);
+      subscribeToTeacher(stream, { div: teacher.get(0) });
     }
   }
 
   function streamCreatedHandler(event) {
     // Subscribe to any new streams that are created
-    //subscribeToTeacher(event.streams);
+    // subscribeToTeacher(event.streams);
   }
 
   function subscribeToTeacher(stream, options) {
