@@ -1,0 +1,105 @@
+<!-- permanent redirect to heroku web server from joogaia-->
+<!DOCTYPE HTML><html lang="en"><head><meta charset="UTF-8"/>
+<style>
+  .OT_subscriber {
+    float:left;
+  }
+  #video-check span.cross {
+    position: relative;
+    margin-left: -11px;
+    margin-right: 6px;
+    color: red;
+    font-weight:bold;
+  }
+  #video-check.active span.cross {
+    display: none;
+  }
+  #video-check img {
+    zoom: 0.5;
+    position: relative;
+    margin-top:-5.1px;
+  }
+  #myPublisherDiv button{
+    margin-bottom:10px !important;
+  }
+</style>
+</head><body>
+<div id="videos">
+  <div id="myPublisherDiv" class="hero-unit">
+    <!-- number of available streams 16/20 -->
+    <!--label id="connections">Available <span>20</span> seats</label-->
+    <input type="text" id="publisherName" value="Type you name" onclick="if(this.value == 'Type you name') this.value='' "/>
+    <button class="btn" id="connect" disabled onclick="connectToStream(event)">Connect</button>
+    <!-- turn on/off the video -->
+    <ul class="nav nav-pills"><li class="active" id="video-check"><a href="#video=on" onclick="return false"><img src="http://s3.amazonaws.com/spweb-uploads/2012/10/Video_icon.png"/><span class="cross">/</span> Video</a></li></ul>
+  </div>
+</div>
+<link href="/bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen"/>
+<link href="/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet" media="screen"/>
+<script type="text/javascript" src="https://swww.tokbox.com/webrtc/v2.0/js/TB.min.js"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script type="text/javascript" src="/bootstrap/js/bootstrap.min.js"></script>
+<script type="text/javascript">
+  // Initialize API key, session, and token, generated from server side
+  var apiKey = "<%= OpenTokKey %>";
+  var sessionId = "<%= sessionId %>";
+  var token = "<%= token %>";
+
+  // Enable console logs for debugging
+  TB.setLogLevel(TB.DEBUG);
+
+  // Initialize session, set up event listeners, and connect
+  var session = TB.initSession(sessionId);
+  session.addEventListener('sessionConnected', sessionConnectedHandler);
+  session.addEventListener('streamCreated', streamCreatedHandler);
+  session.connect(apiKey, token);
+  $('#video-check a').click(function(e) {
+    $(this).parent().toggleClass('active');
+  });
+
+  function connectToStream(e) {
+    // onclick create publisher
+    // Check amount of session streams event.streams.length
+    // Create publisher and start streaming into the session
+    var publisher = TB.initPublisher(apiKey, 'myPublisherDiv', {
+      // will depend on the view (teacher/student)
+      width: 160, 
+      height: 120, 
+      name: document.getElementById("publisherName").value,
+      publishVideo: $('#video-check').hasClass('active')
+    });
+    session.publish(publisher);
+    
+    // Subscribe to streams that were in the session when we connected
+    //subscribeToStreams(event.streams);
+  }
+  
+  function sessionConnectedHandler(event) {
+    $('#connections span:first').text(20 - event.streams.length);
+    $("#connect").removeAttr('disabled');
+  }
+
+  function streamCreatedHandler(event) {
+    // Subscribe to any new streams that are created
+    subscribeToStreams(event.streams);
+  }
+
+  function subscribeToStreams(streams) {
+    for (var i = 0; i < streams.length; i++) {
+      // Make sure we don't subscribe to ourself
+      if (streams[i].connection.connectionId == session.connection.connectionId) {
+        return;
+      }
+
+      // Create the div to put the subscriber element in to
+      var div = document.createElement('div');
+      div.setAttribute('id', 'stream' + streams[i].streamId);
+      document.body.appendChild(div);
+
+      // Subscribe to the stream
+      var subscriber = session.subscribe(streams[i], div.id, {width: 120, height: 90});
+      subscriber.setStyle({nameDisplayMode: 'on'})
+    }
+  }
+</script>
+</body></html>

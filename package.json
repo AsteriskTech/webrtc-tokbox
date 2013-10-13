@@ -5,7 +5,8 @@
     "express": "",
     "opentok": "",
     "ejs": "",
-    "mongoose": ""
+    "mongoose": "",
+    "foreman": ""
   },
   "engines": {
     "node": "0.10.x",

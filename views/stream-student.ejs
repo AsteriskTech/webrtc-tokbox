@@ -1,0 +1,114 @@
+<!-- permanent redirect to heroku web server from joogaia-->
+<!DOCTYPE HTML><html lang="en"><head><meta charset="UTF-8"/>
+<style>
+  .OT_subscriber {
+    float:left;
+  }
+  #video-check span.cross {
+    position: relative;
+    margin-left: -11px;
+    margin-right: 6px;
+    color: red;
+    font-weight:bold;
+  }
+  #video-check.active span.cross {
+    display: none;
+  }
+  #video-check img {
+    zoom: 0.5;
+    position: relative;
+    margin-top:-5.1px;
+  }
+  #myPublisherDiv button{
+    margin-bottom:10px !important;
+  }
+  #user {
+    position:absolute;
+  }
+</style>
+</head><body>
+<div id="videos">
+  <div id="myPublisherDiv" class="hero-unit">
+    <!-- number of available streams 16/20 -->
+    <label id="connections">Available <span>20</span> seats</label>
+    <input type="text" id="publisherName" value="Type you name" onclick="if(this.value == 'Type you name') this.value='' "/>
+    <button class="btn" id="connect" disabled onclick="connectToStream(event)">Connect</button>
+    <!-- turn on/off the video -->
+    <ul class="nav nav-pills"><li class="active" id="video-check"><a href="#video=on" onclick="return false"><img src="http://s3.amazonaws.com/spweb-uploads/2012/10/Video_icon.png"/><span class="cross">/</span> Video</a></li></ul>
+  </div>
+  <div id="user"></div>
+  <div id="students">
+    
+  </div>
+</div>
+<link href="/bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen"/>
+<link href="/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet" media="screen"/>
+<script type="text/javascript" src="https://swww.tokbox.com/webrtc/v2.0/js/TB.min.js"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script type="text/javascript" src="/bootstrap/js/bootstrap.min.js"></script>
+<script type="text/javascript">
+  // Initialize API key, session, and token, generated from server side
+  var apiKey = "<%= OpenTokKey %>";
+  var sessionId = "<%= sessionId %>";
+  var token = "<%= token %>";
+  var stream, subscriber;
+
+  // Enable console logs for debugging
+  TB.setLogLevel(TB.DEBUG);
+
+  // Initialize session, set up event listeners, and connect
+  var session = TB.initSession(sessionId);
+  session.addEventListener('sessionConnected', sessionConnectedHandler);
+  session.addEventListener('streamCreated', streamCreatedHandler);
+  session.connect(apiKey, token);
+  $('#video-check a').click(function(e) {
+    $(this).parent().toggleClass('active');
+  });
+
+  function connectToStream(e) {
+    // onclick create publisher
+    // Check amount of session streams event.streams.length
+    // Create publisher and start streaming into the session
+    var publisher = TB.initPublisher(apiKey, 'user', {
+      // will depend on the view (teacher/student)
+      width: 120, 
+      height: 90, 
+      name: document.getElementById("publisherName").value,
+      publishVideo: $('#video-check').hasClass('active')
+    });
+    session.publish(publisher);
+    
+    // Subscribe to streams that were in the session when we connected
+    session.unsubscribe(subscriber);
+    subscribeToTeacher(stream, { width: 512, height: 384, div: $('#myPublisherDiv').get(0)});
+  }
+  
+  function sessionConnectedHandler(event) {
+    stream = event.streams[0];
+    $('#connections span:first').text(20 - event.streams.length);
+    $("#connect").removeAttr('disabled');
+    
+    // default preview the teacher
+    // Create the div to put the subscriber element in to
+    if(stream) {
+      var div = document.createElement('div');
+      div.setAttribute('id', 'stream-teacher');
+      $("#streams").append(div);
+      subscribeToTeacher(stream, { div: div });
+    }
+  }
+
+  function streamCreatedHandler(event) {
+    // Subscribe to any new streams that are created
+    //subscribeToTeacher(event.streams);
+  }
+
+  function subscribeToTeacher(stream, options) {
+    options = $.extend({width: 120, height: 90}, options || {});
+
+    // Subscribe to the stream
+    subscriber = session.subscribe(stream, options.div.id, options);
+    subscriber.setStyle({nameDisplayMode: 'on'})
+  }
+</script>
+</body></html>
