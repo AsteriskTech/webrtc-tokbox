@@ -1,9 +1,6 @@
 <!-- permanent redirect to heroku web server from joogaia-->
 <!DOCTYPE HTML><html lang="en"><head><meta charset="UTF-8"/>
 <style>
-  .OT_subscriber {
-    float:left;
-  }
   #video-check span.cross {
     position: relative;
     margin-left: -11px;
@@ -19,25 +16,63 @@
     position: relative;
     margin-top:-5.1px;
   }
-  #myPublisherDiv button{
+  #connectWindow button{
     margin-bottom:10px !important;
+  }
+  #canvas {
+    position:relative;
+    width:512px;
+    border:1px solid blue;
+    display:none;
   }
   #user {
     position:absolute;
+    top:0;
+    right:0;
+    width:120px;
+    height:90px;
+    background-color:#000;
+    border:1px solid gray;
+  }
+  #user-names{
+    border:1px solid gray;
+    position:absolute;
+    right:0;
+    width:120px;
+    top:100px;
+    color:#fff;
+  }
+  #teacher {
+    width:512px;
+    height:384px;
+    background-color:#000;
+    border:1px solid gray;
   }
 </style>
 </head><body>
-<div id="videos">
-  <div id="connectWindow" class="hero-unit">
-    <!-- number of available streams 16/20 -->
-    <label id="connections">Available <span>20</span> seats</label>
-    <input type="text" id="publisherName" value="Type you name" onclick="if(this.value == 'Type you name') this.value='' "/>
-    <button class="btn" id="connect" disabled onclick="connectToStream(event)">Connect</button>
-    <!-- turn on/off the video -->
-    <ul class="nav nav-pills"><li class="active" id="video-check"><a href="#video=on" onclick="return false"><img src="http://s3.amazonaws.com/spweb-uploads/2012/10/Video_icon.png"/><span class="cross">/</span> Video</a></li></ul>
+<div id="connectWindow" class="hero-unit">
+  <!-- number of available streams 16/20 -->
+  <label id="connections">Available <span>20</span> seats</label>
+  <input type="text" id="publisherName" value="Type you name" onclick="if(this.value == 'Type you name') this.value='' "/>
+  <button class="btn" id="connect" disabled onclick="connectToStream(event)">Connect</button>
+  <!-- turn on/off the video -->
+  <ul class="nav nav-pills"><li class="active" id="video-check"><a href="#video=on" onclick="return false"><img src="http://s3.amazonaws.com/spweb-uploads/2012/10/Video_icon.png"/><span class="cross">/</span> Video</a></li></ul>
+  <div id="preview">
+    <!-- teacher preview video goes here -->
   </div>
-  <div id="teacher"></div>
+</div>
+<div id="canvas">
+  <!--div id="teacher"></div-->
   <div id="user"></div>
+  <div id="user-names">
+    <!--
+      display list of users subscribed and 
+      who published their video/name
+    -->
+    <p>John Smith</p>
+    <p>Amanda Hamilton</p>
+    <p>Steve Jobs</p>
+  </div>
 </div>
 <link href="/bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen"/>
 <link href="/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet" media="screen"/>
@@ -58,7 +93,8 @@
   var session = TB.initSession(sessionId);
   session.addEventListener('sessionConnected', sessionConnectedHandler);
   // Not required, because there is no auto subscription
-  //session.addEventListener('streamCreated', streamCreatedHandler);
+  session.addEventListener('connectionDestroyed', connectionDestroyed);
+  session.addEventListener('streamCreated', streamCreatedHandler);
   session.connect(apiKey, token);
   $('#video-check a').click(function(e) {
     $(this).parent().toggleClass('active');
@@ -78,30 +114,46 @@
     session.publish(publisher);
     // make sure to hide connection window after connection
     $("#connectWindow").hide();
+    $("#canvas").show();
     
     // Subscribe to streams that were in the session when we connected
     // Be sure to unsubscribe previewed teacher's view
+    // Create teacher's div
     session.unsubscribe(subscriber);
+    $('#canvas').prepend($('<div id="teacher"></div>'));
     subscribeToTeacher(stream, { width: 512, height: 384, div: $('#teacher').get(0)});
+  }
+  
+  function connectionDestroyed(event) {
+    $("#connect").attr('disabled', 'disabled');
+    $('#connections span:first').text(20);
+    
+    // make sure return the connectionWindow
+    // and hide canvas
+    $("#connectWindow").show();
+    $("#canvas").hide();
   }
   
   function sessionConnectedHandler(event) {
     stream = event.streams[0];
-    $('#connections span:first').text(20 - event.streams.length);
-    $("#connect").removeAttr('disabled');
-    
-    // default preview the teacher
-    // Create the div to put the subscriber element in to
     if(stream) {
-      var teacher = $('<div id="stream-teacher"></div>');
-      $("#streams").append(teacher);
-      subscribeToTeacher(stream, { div: teacher.get(0) });
+      $('#connections span:first').text(20 - event.streams.length);
+      $("#connect").removeAttr('disabled');
+      
+      // default preview the teacher
+      // Create the div to put the subscriber element in to
+      // Make sure to do it only when teacher is not yet added to main view
+      if($("#teacher video").length == 0) {
+        var teacher = $('<div id="stream-teacher"></div>');
+        $("#preview").append(teacher);
+        subscribeToTeacher(stream, { div: teacher.get(0) });
+      }
     }
   }
 
   function streamCreatedHandler(event) {
     // Subscribe to any new streams that are created
-    // subscribeToTeacher(event.streams);
+    sessionConnectedHandler(event);
   }
 
   function subscribeToTeacher(stream, options) {

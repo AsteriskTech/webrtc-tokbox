@@ -15,6 +15,8 @@ app.use(express.static(__dirname + '/public'));
 app.set('views', __dirname + "/views");
 app.set('view engine', 'ejs');
 
+//todo initiate database connection
+
 // Set the port and listen
 var port = process.env.PORT || 5000;
 app.listen(port, function() {
@@ -57,3 +59,7 @@ app.get("/stream/:room", createSession);
 
 // teachers room with additional parameter
 app.get("/stream/:teacher/:room", createSession);
+
+// basic authentication
+// create views for login/logout
+// store user sessions

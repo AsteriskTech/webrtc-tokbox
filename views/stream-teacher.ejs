@@ -1,9 +1,6 @@
 <!-- permanent redirect to heroku web server from joogaia-->
 <!DOCTYPE HTML><html lang="en"><head><meta charset="UTF-8"/>
 <style>
-  .OT_subscriber {
-    float:left;
-  }
   #video-check span.cross {
     position: relative;
     margin-left: -11px;
@@ -19,22 +16,72 @@
     position: relative;
     margin-top:-5.1px;
   }
-  #myPublisherDiv button{
+  #connectWindow button{
     margin-bottom:10px !important;
+  }
+  #canvas {
+    position:relative;
+    width:100%;
+    border:1px solid blue;
+    display:none;
+  }
+  #user {
+    width:240px;
+    height:180px;
+    background-color:#000;
+    border:2px solid gray;
+    float:left;
+  }
+  #students .student {
+    border:1px solid gray;
+    width:120px;
+    height:90px;
+    float:left;
+  }
+  #user-names p{
+    float:left
+  }
+  #user-names p:not(:last-child):after {
+    content:',';
+    margin-right:0.2em;
   }
 </style>
 </head><body>
-<div id="videos">
-  <div id="connectWindow" class="hero-unit">
-    <!-- number of available streams 16/20 -->
-    <!--label id="connections">Available <span>20</span> seats</label-->
-    <input type="text" id="publisherName" value="Type you name" onclick="if(this.value == 'Type you name') this.value='' "/>
-    <button class="btn" id="connect" disabled onclick="connectToStream(event)">Connect</button>
-    <!-- turn on/off the video -->
-    <ul class="nav nav-pills"><li class="active" id="video-check"><a href="#video=on" onclick="return false"><img src="http://s3.amazonaws.com/spweb-uploads/2012/10/Video_icon.png"/><span class="cross">/</span> Video</a></li></ul>
+<div id="connectWindow" class="hero-unit">
+  <!-- number of available streams 16/20 -->
+  <!--label id="connections">Available <span>20</span> seats</label-->
+  <input type="text" id="publisherName" value="Type you name" onclick="if(this.value == 'Type you name') this.value='' "/>
+  <button class="btn" id="connect" disabled onclick="connectToStream(event)">Connect</button>
+  <!-- turn on/off the video -->
+  <ul class="nav nav-pills"><li class="active" id="video-check"><a href="#video=on" onclick="return false"><img src="http://s3.amazonaws.com/spweb-uploads/2012/10/Video_icon.png"/><span class="cross">/</span> Video</a></li></ul>
+</div>
+<div id="canvas">
+  <div id="user">
+    <!-- user window -->
   </div>
-  <div id="user"></div>
-  <div id="streams">
+  <div id="students">
+    <!-- 10 -->
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <!-- 20 -->
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
+    <div class="student"></div>
     <!-- students go here -->
     <!--
     it would be a 3x2 grid filling the screen, 
@@ -42,6 +89,18 @@
     5x4 if there are 20 or almost 20
     -->
   </div>
+  <div style="clear:both"></div>
+  <div id="user-names">
+    <!--
+      display list of users subscribed and 
+      who published their video/name
+      after 20 people, no video of them displayed
+    -->
+    <p>John Smith</p>
+    <p>Amanda Hamilton</p>
+    <p>Steve Jobs</p>
+  </div>
+  <div style="clear:both"></div>
 </div>
 <link href="/bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen"/>
 <link href="/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet" media="screen"/>
@@ -60,8 +119,9 @@
   // Initialize session, set up event listeners, and connect
   var session = TB.initSession(sessionId);
   session.addEventListener('sessionConnected', sessionConnectedHandler);
-  // No auto subscription
-  //session.addEventListener('streamCreated', streamCreatedHandler);
+  session.addEventListener("connectionCreated", connectionCreatedHandler);
+  session.addEventListener('streamCreated', streamCreatedHandler);
+  session.addEventListener('streamModified', streamModifiedHandler);
   session.connect(apiKey, token);
   $('#video-check a').click(function(e) {
     $(this).parent().toggleClass('active');
@@ -73,17 +133,18 @@
     // Create publisher and start streaming into the session
     var publisher = TB.initPublisher(apiKey, 'user', {
       // will depend on the view (teacher/student)
-      width: 160, 
-      height: 120, 
+      width: 240, 
+      height: 180, 
       name: document.getElementById("publisherName").value,
       publishVideo: $('#video-check').hasClass('active')
     });
     session.publish(publisher);
     // make sure to hide connection window after connection
     $("#connectWindow").hide();
+    $("#canvas").show();
     
     // Subscribe to streams that were in the session when we connected
-    //subscribeToStreams(event.streams);
+    // subscribeToStreams(event.streams);
   }
   
   function sessionConnectedHandler(event) {
@@ -91,12 +152,20 @@
     $("#connect").removeAttr('disabled');
   }
 
+  function connectionCreatedHandler(event) {
+    console.debug('connections', event.connections.length);
+  }
+  
+  function streamModifiedHandler(event) {
+    console.debug('stream modified', event);
+  }
+  
   function streamCreatedHandler(event) {
     // Subscribe to any new streams that are created
-    // subscribeToStreams(event.streams);
+    subscribeToStudents(event.streams);
   }
 
-  function subscribeToStreams(streams) {
+  function subscribeToStudents(streams) {
     for (var i = 0; i < streams.length; i++) {
       // Make sure we don't subscribe to ourself
       if (streams[i].connection.connectionId == session.connection.connectionId) {
@@ -105,11 +174,13 @@
 
       // Create the div to put the subscriber element in to
       var student = $('<div></div>').attr('id', streams[i].streamId);
-      $("#streams").append(student);
+      $($("#students .student").get(i)).html(student);
 
       // Subscribe to the stream
       var subscriber = session.subscribe(streams[i], student.get(0).id, {width: 120, height: 90});
-      subscriber.setStyle({nameDisplayMode: 'on'})
+      subscriber.setStyle({nameDisplayMode: 'on'});
+      // remove audio subscription
+      subscriber.subscribeToAudio(false);
     }
   }
 </script>
