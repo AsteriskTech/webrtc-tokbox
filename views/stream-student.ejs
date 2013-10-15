@@ -120,6 +120,8 @@
     // Be sure to unsubscribe previewed teacher's view
     // Create teacher's div
     session.unsubscribe(subscriber);
+    //todo: keep teacher element, but create inner div
+    //      for every new connection
     $('#canvas').prepend($('<div id="teacher"></div>'));
     subscribeToTeacher(stream, { width: 512, height: 384, div: $('#teacher').get(0)});
   }

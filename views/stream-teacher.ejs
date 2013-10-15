@@ -24,6 +24,7 @@
     width:100%;
     border:1px solid blue;
     display:none;
+    background:#000;
   }
   #user {
     width:240px;
@@ -51,9 +52,7 @@
   <!-- number of available streams 16/20 -->
   <!--label id="connections">Available <span>20</span> seats</label-->
   <input type="text" id="publisherName" value="Type you name" onclick="if(this.value == 'Type you name') this.value='' "/>
-  <button class="btn" id="connect" disabled onclick="connectToStream(event)">Connect</button>
-  <!-- turn on/off the video -->
-  <ul class="nav nav-pills"><li class="active" id="video-check"><a href="#video=on" onclick="return false"><img src="http://s3.amazonaws.com/spweb-uploads/2012/10/Video_icon.png"/><span class="cross">/</span> Video</a></li></ul>
+  <button class="btn" id="connect" disabled onclick="connectToStream(event)">Create your class</button>
 </div>
 <div id="canvas">
   <div id="user">
@@ -96,9 +95,9 @@
       who published their video/name
       after 20 people, no video of them displayed
     -->
-    <p>John Smith</p>
+    <!--p>John Smith</p>
     <p>Amanda Hamilton</p>
-    <p>Steve Jobs</p>
+    <p>Steve Jobs</p-->
   </div>
   <div style="clear:both"></div>
 </div>
@@ -112,6 +111,27 @@
   var apiKey = "<%= OpenTokKey %>";
   var sessionId = "<%= sessionId %>";
   var token = "<%= token %>";
+  var publisher;
+  var screen = {
+    /*
+    1024x768
+    
+    teacher:
+    w2 = (1024/5)*2;
+    h2 = w2 * h / w
+    students:
+    w2 = (1024/5);
+    h2 = w * h / w
+    */
+    videoWidth: function(m) {
+      m = m || 1;
+      return ((this.width/5) - 2/*px border*/*5) * m;
+    },
+    videoHeight: function(w, h, m) {
+      m = m || 1;
+      return ((((this.width/5) - 2/*px border*/*5) * m) * h) / w;
+    }
+  };
 
   // Enable console logs for debugging
   TB.setLogLevel(TB.DEBUG);
@@ -127,22 +147,63 @@
     $(this).parent().toggleClass('active');
   });
 
-  function connectToStream(e) {
+  $(window).resize(function() {
+    // reference to http://davidwalsh.name/fullscreen
+    if(document.webkitFullscreenElement == null) {
+      // if user ends the fullscreen mode
+      // make sure to hide canvas and show connection window
+      $("#connectWindow").show();
+      $("#canvas").hide();
+      // but keep the session do not republish it
+    }
+  });
+  
+  function enterFullScreenHandler() {  
+    console.debug($(window).width(), 
+                  $(window).height(), document.webkitFullscreenElement);
+    
+    // catch the window screen size at the correct moment
+    screen = $.extend(screen, {
+              width: $(window).width(),
+              height: $(window).height()});
+              
     // onclick create publisher
-    // Check amount of session streams event.streams.length
-    // Create publisher and start streaming into the session
-    var publisher = TB.initPublisher(apiKey, 'user', {
+    // create publisher and start streaming into the session
+    // subscribe to resize window
+    publisher = TB.initPublisher(apiKey, 'user', {
       // will depend on the view (teacher/student)
-      width: 240, 
-      height: 180, 
+      // 240x180
+      width: screen.videoWidth(2), 
+      height: screen.videoHeight(240, 180, 2), 
       name: document.getElementById("publisherName").value,
-      publishVideo: $('#video-check').hasClass('active')
+      //publishVideo: $('#video-check').hasClass('active')
     });
     session.publish(publisher);
     // make sure to hide connection window after connection
     $("#connectWindow").hide();
     $("#canvas").show();
     
+    // remove on window resize handler, we need it only once
+    $(window).off('resize', enterFullScreenHandler);
+  }
+
+  function createPublisherHandler() {
+    // subscribe to resize window
+  }
+  
+  function connectToStream(e) {
+    // enable full screen mode for canvas only
+    // handle publisher then
+    $(window).on('resize', enterFullScreenHandler);
+    // reference to http://www.sitepoint.com/html5-full-screen-api/
+    if (_checkMethod(document, "FullScreen") 
+     || _checkMethod(document, "IsFullScreen")) {
+        _checkMethod(document, "CancelFullScreen");
+    } else {
+      _checkMethod($("#canvas").get(0), "RequestFullScreen");
+    }
+
+    // no need to connect, stream is always empty
     // Subscribe to streams that were in the session when we connected
     // subscribeToStreams(event.streams);
   }
@@ -166,6 +227,16 @@
   }
 
   function subscribeToStudents(streams) {
+    console.debug("Create students");
+    // adjust scale for video
+    var options = {
+      width: screen.videoWidth(), 
+      height: screen.videoHeight(120, 90)};
+    // adjust scale styles for student
+    $('#students .student').css({
+       width: options.width + 'px',
+       height: options.height + 'px'});
+
     for (var i = 0; i < streams.length; i++) {
       // Make sure we don't subscribe to ourself
       if (streams[i].connection.connectionId == session.connection.connectionId) {
@@ -177,10 +248,29 @@
       $($("#students .student").get(i)).html(student);
 
       // Subscribe to the stream
-      var subscriber = session.subscribe(streams[i], student.get(0).id, {width: 120, height: 90});
+      var subscriber = session.subscribe(streams[i], student.get(0).id, options);
       subscriber.setStyle({nameDisplayMode: 'on'});
       // remove audio subscription
       subscriber.subscribeToAudio(false);
+    }
+  }
+  
+  // unified fullscreen method for cross browser
+  var pfx = ["webkit", "moz", "ms", "o", ""];
+  function _checkMethod(obj, method) {
+    var p = 0, m, t;
+    while (p < pfx.length && !obj[m]) {
+      m = method;
+      if (pfx[p] == "") {
+        m = m.substr(0,1).toLowerCase() + m.substr(1);
+      }
+      m = pfx[p] + m;
+      t = typeof obj[m];
+      if (t != "undefined") {
+        pfx = [pfx[p]];
+        return (t == "function" ? obj[m]() : obj[m]);
+      }
+      p++;
     }
   }
 </script>
