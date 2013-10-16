@@ -170,15 +170,17 @@
     // onclick create publisher
     // create publisher and start streaming into the session
     // subscribe to resize window
-    publisher = TB.initPublisher(apiKey, 'user', {
-      // will depend on the view (teacher/student)
-      // 240x180
-      width: screen.videoWidth(2), 
-      height: screen.videoHeight(240, 180, 2), 
-      name: document.getElementById("publisherName").value,
-      //publishVideo: $('#video-check').hasClass('active')
-    });
-    session.publish(publisher);
+    if(publisher == null) {
+      publisher = TB.initPublisher(apiKey, 'user', {
+        // will depend on the view (teacher/student)
+        // 240x180
+        width: screen.videoWidth(2), 
+        height: screen.videoHeight(240, 180, 2), 
+        name: $("#publisherName").val(),
+        //publishVideo: $('#video-check').hasClass('active')
+      });
+      session.publish(publisher);
+    }
     // make sure to hide connection window after connection
     $("#connectWindow").hide();
     $("#canvas").show();
@@ -202,7 +204,7 @@
     } else {
       _checkMethod($("#canvas").get(0), "RequestFullScreen");
     }
-
+    
     // no need to connect, stream is always empty
     // Subscribe to streams that were in the session when we connected
     // subscribeToStreams(event.streams);
@@ -242,7 +244,7 @@
       if (streams[i].connection.connectionId == session.connection.connectionId) {
         return;
       }
-
+      
       // Create the div to put the subscriber element in to
       var student = $('<div></div>').attr('id', streams[i].streamId);
       $($("#students .student").get(i)).html(student);
@@ -254,7 +256,8 @@
       subscriber.subscribeToAudio(false);
     }
   }
-  
+</script>
+<script>
   // unified fullscreen method for cross browser
   var pfx = ["webkit", "moz", "ms", "o", ""];
   function _checkMethod(obj, method) {

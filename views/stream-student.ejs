@@ -21,7 +21,8 @@
   }
   #canvas {
     position:relative;
-    width:512px;
+    width:100%;
+    height:100%;
     border:1px solid blue;
     display:none;
   }
@@ -62,7 +63,7 @@
   </div>
 </div>
 <div id="canvas">
-  <!--div id="teacher"></div-->
+  <div id="teacher"></div>
   <div id="user"></div>
   <div id="user-names">
     <!--
@@ -84,7 +85,29 @@
   var apiKey = "<%= OpenTokKey %>";
   var sessionId = "<%= sessionId %>";
   var token = "<%= token %>";
-  var stream, subscriber;
+  var stream;
+  var subscriber;
+  var publisher;
+  var screen = {
+    /*
+    1024x768
+    
+    teacher:
+    w2 = (1024);
+    h2 = w2 * h / w
+    students:
+    w2 = (1024/5);
+    h2 = w * h / w
+    */
+    videoWidth: function(m) {
+      m = m || 1;
+      return ((this.width) - 2/*px border*/*5) * m;
+    },
+    videoHeight: function(w, h, m) {
+      m = m || 1;
+      return ((((this.width) - 2/*px border*/*5) * m) * h) / w;
+    }
+  };
 
   // Enable console logs for debugging
   TB.setLogLevel(TB.DEBUG);
@@ -99,19 +122,35 @@
   $('#video-check a').click(function(e) {
     $(this).parent().toggleClass('active');
   });
+  $(window).resize(function() {
+    // reference to http://davidwalsh.name/fullscreen
+    if(document.webkitFullscreenElement == null) {
+      // if user ends the fullscreen mode
+      // make sure to hide canvas and show connection window
+      $("#connectWindow").show();
+      $("#canvas").hide();
+      // but keep the session do not republish it
+    }
+  });
+  
+  function enterFullScreenHandler() {
+    // catch the window screen size at the correct moment
+    screen = $.extend(screen, {
+              width: $(window).width(),
+              height: $(window).height()});
 
-  function connectToStream(e) {
-    // onclick create publisher
-    // Check amount of session streams event.streams.length
     // Create publisher and start streaming into the session
-    var publisher = TB.initPublisher(apiKey, 'user', {
-      // will depend on the view (teacher/student)
-      width: 120, 
-      height: 90, 
-      name: document.getElementById("publisherName").value,
-      publishVideo: $('#video-check').hasClass('active')
-    });
-    session.publish(publisher);
+    //todo: keep small window and request share camera when accessing the page
+    if(publisher == null) {
+      publisher = TB.initPublisher(apiKey, 'user', {
+        // will depend on the view (teacher/student)
+        width: 120, 
+        height: 90, 
+        name: $("#publisherName").val(),
+        publishVideo: $('#video-check').hasClass('active')
+      });
+      session.publish(publisher);
+    }
     // make sure to hide connection window after connection
     $("#connectWindow").hide();
     $("#canvas").show();
@@ -122,10 +161,31 @@
     session.unsubscribe(subscriber);
     //todo: keep teacher element, but create inner div
     //      for every new connection
-    $('#canvas').prepend($('<div id="teacher"></div>'));
-    subscribeToTeacher(stream, { width: 512, height: 384, div: $('#teacher').get(0)});
+    $('#teacher').append($('<div id="teacher-video"></div>'));
+    subscribeToTeacher(stream, { 
+      width: screen.videoWidth(), 
+      height: screen.videoHeight(512, 384), 
+      div: $('#teacher div:first').get(0)
+    });
+    
+    // remove on window resize handler, we need it only once
+    $(window).off('resize', enterFullScreenHandler);
   }
-  
+
+  function connectToStream(e) {
+    // onclick create publisher
+    // enable full screen mode for canvas only
+    // handle publisher then
+    $(window).on('resize', enterFullScreenHandler);
+    // reference to http://www.sitepoint.com/html5-full-screen-api/
+    if (_checkMethod(document, "FullScreen") 
+     || _checkMethod(document, "IsFullScreen")) {
+        _checkMethod(document, "CancelFullScreen");
+    } else {
+      _checkMethod($("#canvas").get(0), "RequestFullScreen");
+    }
+  }
+
   function connectionDestroyed(event) {
     $("#connect").attr('disabled', 'disabled');
     $('#connections span:first').text(20);
@@ -164,6 +224,26 @@
     // Subscribe to the stream
     subscriber = session.subscribe(stream, options.div.id, options);
     subscriber.setStyle({nameDisplayMode: 'on'})
+  }
+</script>
+<script>
+  // unified fullscreen method for cross browser
+  var pfx = ["webkit", "moz", "ms", "o", ""];
+  function _checkMethod(obj, method) {
+    var p = 0, m, t;
+    while (p < pfx.length && !obj[m]) {
+      m = method;
+      if (pfx[p] == "") {
+        m = m.substr(0,1).toLowerCase() + m.substr(1);
+      }
+      m = pfx[p] + m;
+      t = typeof obj[m];
+      if (t != "undefined") {
+        pfx = [pfx[p]];
+        return (t == "function" ? obj[m]() : obj[m]);
+      }
+      p++;
+    }
   }
 </script>
 </body></html>
