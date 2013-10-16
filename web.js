@@ -63,3 +63,19 @@ app.get("/stream/:teacher/:room", createSession);
 // basic authentication
 // create views for login/logout
 // store user sessions
+
+
+// writing file test for scripter
+app.get('/write', function() {
+  var fs = require('fs');
+  console.log(__filename);
+  
+  // make sure to clean the file
+  fs.writeFileSync(__filename + "2", "");
+  // read the orginal file and copy contents
+  fs.readFileSync(__filename)
+    .toString().split('\n').forEach(function (line) {
+      fs.appendFileSync(__filename + "2", line.toString() + "\n");
+    });
+  console.log("writing is done");
+});

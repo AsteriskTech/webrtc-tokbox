@@ -1,0 +1,51 @@
+<style>
+.code textarea {
+  font-size: 75%;
+  font-family: Consolas;
+  width: 100%;
+}
+</style>
+<script id="core">
+$(function() {
+  // use every script tags on the page except core
+  // todo: proper extract, remember which tag to modify
+  $('#code').append($("script:not([id=core])").text());
+  
+  // extracting globals
+  // todo: visualize to dropdown
+  // todo: ability to add/edit
+  $.each($('#code').text().match(/^[ ]{2}var .*/img), function() {
+    $("#vars").append($("<pre>" + this.trim() + "</pre>"));
+  });
+  
+  // extracting events
+  // todo: visualize to dropdown
+  // todo: ability to add/edit
+  $.each($('#code').text().match(/addEventListener.*/ig), function() {
+    $("#events").append($("<pre>" + this + "</pre>"));
+  });
+  
+  // extracting functions
+  // todo: extract logic when selecting function
+  // todo: ability to add/edit structure
+  $.each($('#code').text().match(/(function .*?([\r\n]+(?:(?!^[ ]{2}\}).)*)+)+/img), function () {
+    $('#functions').append($("<pre>"+ this +"</pre>"));
+  });
+  
+  // plugin for editing code when needed
+  $("#vars pre").click(function() {
+    $(this).after("<textarea id='"+Math.random()+"'>" + $(this).text() +"</textarea>").next().focus();
+    $(document).on('blur', 'textarea[id="' + $(this).next().get(0).id + '"]', function() {
+      $(this).prev().show().text($(this).val());
+      $(this).remove();
+    });
+    $(this).hide();
+  });
+})
+</script>
+<div class="code">
+  <div id="vars"></div>
+  <div id="events"></div>
+  <div id="functions"></div>
+  <pre id="code"></pre>
+</div>
