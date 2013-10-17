@@ -114,14 +114,15 @@
 
   // Initialize session, set up event listeners, and connect
   var session = TB.initSession(sessionId);
-  session.addEventListener('sessionConnected', sessionConnectedHandler);
-  // Not required, because there is no auto subscription
-  session.addEventListener('connectionDestroyed', connectionDestroyed);
-  session.addEventListener('streamCreated', streamCreatedHandler);
+  session.on('sessionConnected', sessionConnectedHandler);
+  session.on('connectionDestroyed', connectionDestroyed);
+  session.on('streamCreated', streamCreatedHandler);
   session.connect(apiKey, token);
+
   $('#video-check a').click(function(e) {
     $(this).parent().toggleClass('active');
   });
+  
   $(window).resize(function() {
     // reference to http://davidwalsh.name/fullscreen
     if(document.webkitFullscreenElement == null) {
@@ -224,6 +225,12 @@
     // Subscribe to the stream
     subscriber = session.subscribe(stream, options.div.id, options);
     subscriber.setStyle({nameDisplayMode: 'on'})
+
+    // check the session mute event
+    session.on('signal:mute', function (e) {
+      console.debug("mute event", e.data);
+      publisher.publishAudio(e.data.sound);
+    });    
   }
 </script>
 <script>

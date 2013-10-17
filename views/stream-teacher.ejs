@@ -30,11 +30,11 @@
     width:240px;
     height:180px;
     background-color:#000;
-    border:2px solid gray;
+    border:0.2em solid gray;
     float:left;
   }
   #students .student {
-    border:1px solid gray;
+    border:0.1em solid gray;
     width:120px;
     height:90px;
     float:left;
@@ -46,15 +46,22 @@
     content:',';
     margin-right:0.2em;
   }
+  #mute-all {
+    position: absolute;
+    z-index: 1;
+    top: 0.5em;
+    left: 0.5em;
+  }
 </style>
 </head><body>
 <div id="connectWindow" class="hero-unit">
   <!-- number of available streams 16/20 -->
   <!--label id="connections">Available <span>20</span> seats</label-->
   <input type="text" id="publisherName" value="Type your name" onclick="if(this.value == 'Type your name') this.value='' "/>
-  <button class="btn" id="connect" disabled onclick="connectToStream(event)">Create your class</button>
+  <button class="btn" id="connect" connected="Back to fullscreen" disabled onclick="connectToStream(event)">Create your class</button>
 </div>
 <div id="canvas">
+  <a href="#mute=all" class="btn" id="mute-all" onclick="return false">Mute all</a> 
   <div id="user">
     <!-- user window -->
   </div>
@@ -138,13 +145,25 @@
 
   // Initialize session, set up event listeners, and connect
   var session = TB.initSession(sessionId);
-  session.addEventListener('sessionConnected', sessionConnectedHandler);
-  session.addEventListener("connectionCreated", connectionCreatedHandler);
-  session.addEventListener('streamCreated', streamCreatedHandler);
-  session.addEventListener('streamModified', streamModifiedHandler);
+  session.on('sessionConnected', sessionConnectedHandler);
+  session.on("connectionCreated", connectionCreatedHandler);
+  session.on('streamCreated', streamCreatedHandler);
+  session.on('streamModified', streamModifiedHandler);
   session.connect(apiKey, token);
+
   $('#video-check a').click(function(e) {
     $(this).parent().toggleClass('active');
+  });
+
+  $('#mute-all').click(function(e) {
+    // signal students to turn off their mike
+    session.signal({
+      type: 'mute',
+      data: { sound: false },
+      success: function () {
+        console.debug("signal sent");
+      }
+    });
   });
 
   $(window).resize(function() {
@@ -184,6 +203,11 @@
     // make sure to hide connection window after connection
     $("#connectWindow").hide();
     $("#canvas").show();
+
+    // disable input name field
+    $('#publisherName').attr('disabled', 'disabled');
+    // change connect label to return back
+    $("#connect").text($("#connect").attr('connected'));
     
     // remove on window resize handler, we need it only once
     $(window).off('resize', enterFullScreenHandler);
@@ -204,19 +228,17 @@
     } else {
       _checkMethod($("#canvas").get(0), "RequestFullScreen");
     }
-    
-    // no need to connect, stream is always empty
-    // Subscribe to streams that were in the session when we connected
-    // subscribeToStreams(event.streams);
   }
   
   function sessionConnectedHandler(event) {
-    $('#connections span:first').text(20 - event.streams.length);
+    console.debug("session connected", event);
+
+    // activate connection button 
     $("#connect").removeAttr('disabled');
   }
 
   function connectionCreatedHandler(event) {
-    console.debug('connections', event.connections.length);
+    console.debug('connection created', event);
   }
   
   function streamModifiedHandler(event) {
@@ -224,6 +246,7 @@
   }
   
   function streamCreatedHandler(event) {
+    console.debug('stream created', event);
     // Subscribe to any new streams that are created
     subscribeToStudents(event.streams);
   }
@@ -251,8 +274,6 @@
       // Subscribe to the stream
       var subscriber = session.subscribe(streams[i], student.get(0).id, options);
       subscriber.setStyle({nameDisplayMode: 'on'});
-      // remove audio subscription
-      subscriber.subscribeToAudio(false);
     }
   }
 </script>
