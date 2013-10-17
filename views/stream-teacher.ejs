@@ -51,7 +51,7 @@
 <div id="connectWindow" class="hero-unit">
   <!-- number of available streams 16/20 -->
   <!--label id="connections">Available <span>20</span> seats</label-->
-  <input type="text" id="publisherName" value="Type you name" onclick="if(this.value == 'Type you name') this.value='' "/>
+  <input type="text" id="publisherName" value="Type your name" onclick="if(this.value == 'Type your name') this.value='' "/>
   <button class="btn" id="connect" disabled onclick="connectToStream(event)">Create your class</button>
 </div>
 <div id="canvas">
@@ -247,8 +247,7 @@
       
       // Create the div to put the subscriber element in to
       var student = $('<div></div>').attr('id', streams[i].streamId);
-      $($("#students .student").get(i)).html(student);
-
+      $($("#students .student").get($('#students video').length)).html(student);
       // Subscribe to the stream
       var subscriber = session.subscribe(streams[i], student.get(0).id, options);
       subscriber.setStyle({nameDisplayMode: 'on'});
