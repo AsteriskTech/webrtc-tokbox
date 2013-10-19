@@ -274,6 +274,9 @@
       // Subscribe to the stream
       var subscriber = session.subscribe(streams[i], student.get(0).id, options);
       subscriber.setStyle({nameDisplayMode: 'on'});
+
+      //keep for testing purposes
+      //subscriber.subscribeToAudio(false);
     }
   }
 </script>

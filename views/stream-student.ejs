@@ -65,7 +65,7 @@
 <div id="canvas">
   <div id="teacher"></div>
   <div id="user"></div>
-  <div id="user-names">
+  <div id="students">
     <!--
       display list of users subscribed and 
       who published their video/name
@@ -85,7 +85,7 @@
   var apiKey = "<%= OpenTokKey %>";
   var sessionId = "<%= sessionId %>";
   var token = "<%= token %>";
-  var stream;
+  var teacherStream;
   var subscriber;
   var publisher;
   var screen = {
@@ -163,7 +163,7 @@
     //todo: keep teacher element, but create inner div
     //      for every new connection
     $('#teacher').append($('<div id="teacher-video"></div>'));
-    subscribeToTeacher(stream, { 
+    subscribeToStream(teacherStream, { 
       width: screen.videoWidth(), 
       height: screen.videoHeight(512, 384), 
       div: $('#teacher div:first').get(0)
@@ -187,29 +187,43 @@
     }
   }
 
+  //todo-debug
+  //reconsider for the same session
+  //give a warning, only needed when teacher is leaving the class
   function connectionDestroyed(event) {
-    $("#connect").attr('disabled', 'disabled');
-    $('#connections span:first').text(20);
+    console.debug(event)
+
+    //$("#connect").attr('disabled', 'disabled');
+    //$('#connections span:first').text(20);
     
     // make sure return the connectionWindow
     // and hide canvas
-    $("#connectWindow").show();
-    $("#canvas").hide();
+    //$("#connectWindow").show();
+    //$("#canvas").hide();
   }
   
   function sessionConnectedHandler(event) {
-    stream = event.streams[0];
-    if(stream) {
+    if(event.streams.length > 0) {
       $('#connections span:first').text(20 - event.streams.length);
       $("#connect").removeAttr('disabled');
-      
-      // default preview the teacher
+    }
+
+    for(var i = 0; i < event.streams.length; i++) {
       // Create the div to put the subscriber element in to
-      // Make sure to do it only when teacher is not yet added to main view
-      if($("#teacher video").length == 0) {
-        var teacher = $('<div id="stream-teacher"></div>');
-        $("#preview").append(teacher);
-        subscribeToTeacher(stream, { div: teacher.get(0) });
+      if($("#canvas video").length < event.streams.length) {
+        // default preview the teacher
+        // Make sure to do it only when teacher is not yet added to main view
+        if($("#teacher video").length == 0) {
+          var teacher = $('<div id="stream-teacher"></div>');
+          $("#preview").append(teacher);
+          teacherStream = event.streams[i];
+          subscribeToStream(event.streams[i], { div: teacher.get(0) });
+        } else {
+          subscribeToStream(event.streams[i], { 
+            div: $("#students p").get(i - 1), 
+            subscribeToVideo: false
+          });
+        }
       }
     }
   }
@@ -219,7 +233,7 @@
     sessionConnectedHandler(event);
   }
 
-  function subscribeToTeacher(stream, options) {
+  function subscribeToStream(stream, options) {
     options = $.extend({width: 120, height: 90}, options || {});
 
     // Subscribe to the stream
