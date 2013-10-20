@@ -125,7 +125,8 @@
   
   $(window).resize(function() {
     // reference to http://davidwalsh.name/fullscreen
-    if(document.webkitFullscreenElement == null) {
+    if(document.webkitFullscreenElement == null &&
+       document.mozFullscreenElement == null) {
       // if user ends the fullscreen mode
       // make sure to hide canvas and show connection window
       $("#connectWindow").show();
