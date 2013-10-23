@@ -22,6 +22,7 @@
   #canvas {
     position:relative;
     width:100%;
+    height:100%;
     border:1px solid blue;
     display:none;
     background:#000;
@@ -30,11 +31,12 @@
     width:240px;
     height:180px;
     background-color:#000;
-    border:0.2em solid gray;
+    border:0.1em solid gray;
     float:left;
   }
   #students .student {
-    border:0.1em solid gray;
+    border:0.1em solid #000;
+    background:#333;
     width:120px;
     height:90px;
     float:left;
@@ -58,7 +60,8 @@
   <!-- number of available streams 16/20 -->
   <!--label id="connections">Available <span>20</span> seats</label-->
   <input type="text" id="publisherName" value="Type your name" onclick="if(this.value == 'Type your name') this.value='' "/>
-  <button class="btn" id="connect" connected="Back to fullscreen" disabled onclick="connectToStream(event)">Create your class</button>
+  <button class="btn" id="connect" disabled onclick="connectToStream(event)">Create your class</button>
+  <button class="btn" style="display:none" id="fullscreen" onclick="requestFullScreen(event)">Fullscreen</button>
 </div>
 <div id="canvas">
   <a href="#mute=all" class="btn" id="mute-all" onclick="return false">Mute all</a> 
@@ -70,14 +73,15 @@
     <div class="student"></div>
     <div class="student"></div>
     <div class="student"></div>
+    <!--div class="student"></div>
     <div class="student"></div>
     <div class="student"></div>
     <div class="student"></div>
     <div class="student"></div>
     <div class="student"></div>
-    <div class="student"></div>
-    <div class="student"></div>
+    <div class="student"></div-->
     <!-- 20 -->
+    <!--div class="student"></div>
     <div class="student"></div>
     <div class="student"></div>
     <div class="student"></div>
@@ -86,8 +90,7 @@
     <div class="student"></div>
     <div class="student"></div>
     <div class="student"></div>
-    <div class="student"></div>
-    <div class="student"></div>
+    <div class="student"></div-->
     <!-- students go here -->
     <!--
     it would be a 3x2 grid filling the screen, 
@@ -132,13 +135,13 @@
     w2 = (1024/5);
     h2 = w * h / w
     */
-    videoWidth: function(m) {
-      m = m || 1;
-      return ((this.width/5) - 2/*px border*/*5) * m;
+    videoWidth: function(i, m) {
+      m = m || 1, i = i || 5
+      return ((this.width/i) - 2/*px border*/*i) * m;
     },
-    videoHeight: function(w, h, m) {
-      m = m || 1;
-      return ((((this.width/5) - 2/*px border*/*5) * m) * h) / w;
+    videoHeight: function(w, h, i, m) {
+      m = m || 1, i = i || 5
+      return ((((this.width/i) - 2/*px border*/*i) * m) * h) / w;
     }
   };
 
@@ -180,12 +183,12 @@
       // if user ends the fullscreen mode
       // make sure to hide canvas and show connection window
       $("#connectWindow").show();
-      $("#canvas").hide();
+      //$("#canvas").hide();
       // but keep the session do not republish it
     }
   });
   
-  function enterFullScreenHandler() {  
+  function canvasHandler() {  
     console.debug($(window).width(), 
                   $(window).height(), document.webkitFullscreenElement);
     
@@ -201,15 +204,15 @@
       publisher = TB.initPublisher(apiKey, 'user', {
         // will depend on the view (teacher/student)
         // 240x180
-        width: screen.videoWidth(2), 
-        height: screen.videoHeight(240, 180, 2), 
+        width: screen.videoWidth(3), 
+        height: screen.videoHeight(120, 90, 3), 
         name: $("#publisherName").val(),
         //publishVideo: $('#video-check').hasClass('active')
       });
       session.publish(publisher);
     }
     // make sure to hide connection window after connection
-    $("#connectWindow").hide();
+    //$("#connectWindow").hide();
     $("#canvas").show();
 
     // disable input name field
@@ -218,15 +221,13 @@
     $("#connect").text($("#connect").attr('connected'));
     
     // remove on window resize handler, we need it only once
-    $(window).off('resize', enterFullScreenHandler);
+    $(window).off('resize', canvasHandler);
   }
-  
-  function connectToStream(event) {
-    console.debug("connect button", event);
+
+  function requestFullScreen(event) {
     // enable full screen mode for canvas only
-    // handle publisher then
-    $(window).on('resize', enterFullScreenHandler);
-    // reference to http://www.sitepoint.com/html5-full-screen-api/
+    $(window).on('resize', canvasHandler);
+    // reference to http://www.sitepoint.com/html5-full-screen-api/    
     if (_checkMethod(document, "FullScreen") 
      || _checkMethod(document, "IsFullScreen")) {
         _checkMethod(document, "CancelFullScreen");
@@ -234,11 +235,14 @@
       _checkMethod($("#canvas").get(0), "RequestFullScreen");
     }
   }
+
+  function connectToStream(event) {
+    console.debug("connect button", event);
+    canvasHandler();
+  }
   
   function sessionConnectedHandler(event) {
     console.debug("session connected", event);
-
-    // activate connection button 
     $("#connect").removeAttr('disabled');
   }
 
@@ -254,6 +258,10 @@
     console.debug('stream created', event);
     // Subscribe to any new streams that are created
     subscribeToStudents(event.streams);
+
+    // activate fullscreen button 
+    $("#fullscreen").show();
+    $("#connect").hide();
   }
 
   function streamModifiedHandler(event) {
@@ -268,14 +276,15 @@
     // adjust scale for video
     // todo- proportionally to amount of video streams
     var options = {
-      width: screen.videoWidth(), 
-      height: screen.videoHeight(120, 90)};
+      width: screen.videoWidth(3), 
+      height: screen.videoHeight(120, 90, 3)};
     // adjust scale styles for student
     $('#students .student').css({
        width: options.width + 'px',
        height: options.height + 'px'});
 
     // join new or existing student
+    // change to sessions.streams
     streams = streams.concat(_streams);
     var s = [].concat(streams);
     for (var i = 0; i < s.length; i++) {

@@ -25,6 +25,7 @@
     height:100%;
     border:1px solid blue;
     display:none;
+    background: #000;
   }
   #user {
     position:absolute;
@@ -46,8 +47,8 @@
   #teacher {
     width:512px;
     height:384px;
-    background-color:#000;
-    border:1px solid gray;
+    background-color:#333;
+    border:1px solid #000;
   }
 </style>
 </head><body>
@@ -56,6 +57,7 @@
   <label id="connections">Available <span>20</span> seats</label>
   <input type="text" id="publisherName" value="Type your name" onclick="if(this.value == 'Type your name') this.value='' "/>
   <button class="btn" id="connect" disabled onclick="connectToStream(event)">Connect</button>
+  <button class="btn" style="display:none" id="fullscreen" onclick="requestFullScreen(event)">Fullscreen</button>
   <!-- turn on/off the video -->
   <ul class="nav nav-pills"><li class="active" id="video-check"><a href="#video=on" onclick="return false"><img src="http://s3.amazonaws.com/spweb-uploads/2012/10/Video_icon.png"/><span class="cross">/</span> Video</a></li></ul>
   <div id="preview">
@@ -138,7 +140,7 @@
     }
   });
   
-  function enterFullScreenHandler() {
+  function canvasHandler() {
     // catch the window screen size at the correct moment
     screen = $.extend(screen, {
               width: $(window).width(),
@@ -146,8 +148,9 @@
 
     // Create publisher and start streaming into the session
     //todo: keep small window and request share camera when accessing the page
-    if(publisher == null) {
-      publisher = TB.initPublisher(apiKey, 'user', {
+    if($("#user video").length == 0) {
+      $("#user").append($("<div></div>").attr('id', session.connection.id));
+      publisher = TB.initPublisher(apiKey, session.connection.id, {
         // will depend on the view (teacher/student)
         width: 120, 
         height: 90, 
@@ -157,7 +160,7 @@
       session.publish(publisher);
     }
     // make sure to hide connection window after connection
-    $("#connectWindow").hide();
+    //$("#connectWindow").hide();
     $("#canvas").show();
     
     // Subscribe to streams that were in the session when we connected
@@ -176,15 +179,13 @@
       });
     }
     // remove on window resize handler, we need it only once
-    $(window).off('resize', enterFullScreenHandler);
+    $(window).off('resize', canvasHandler);
   }
 
-  function connectToStream(e) {
-    // onclick create publisher
+  function requestFullScreen(event) {
     // enable full screen mode for canvas only
-    // handle publisher then
-    $(window).on('resize', enterFullScreenHandler);
-    // reference to http://www.sitepoint.com/html5-full-screen-api/
+    $(window).on('resize', canvasHandler);
+    // reference to http://www.sitepoint.com/html5-full-screen-api/    
     if (_checkMethod(document, "FullScreen") 
      || _checkMethod(document, "IsFullScreen")) {
         _checkMethod(document, "CancelFullScreen");
@@ -193,17 +194,33 @@
     }
   }
 
-  function connectionCreatedHandler(event) {
-    console.debug('connection created', event);
+  function connectToStream(e) {
+    console.debug("connect button", event);
+    canvasHandler();
   }
 
+  function connectionCreatedHandler(event) {
+    console.debug('connection created', event);
+    updateConnectionInfo();
+  }
+
+  var destroyedEvent;
   //todo-debug
   //reconsider for the same session
   //give a warning, only needed when teacher is leaving the class
   function connectionDestroyed(event) {
     console.debug("connection destroyed", event);
-    subscribeiber = null;
-    teacherStream = null;
+    destroyedEvent = event;
+    if(event.connections[0] == teacherStream.connection &&
+      publisher != null) {
+      session.unpublish(publisher);
+      $("#fullscreen").hide();
+      $("#connect").show();
+    }
+    updateConnectionInfo();
+
+    //subscriber = null;
+    //teacherStream = null;
 
     //session.disconnect();
     //session.connect(apiKey, token);
@@ -217,24 +234,26 @@
     //$("#canvas").hide();
   }
   
+  var createdEvent;
   function sessionConnectedHandler(event) {
     console.debug("session connected", event);
-
-    if(event.streams.length > 0) {
-      $('#connections span:first').text(20 - event.streams.length);
-      $("#connect").removeAttr('disabled');
-    }
+    createdEvent = event;
 
     createSubscription(event.streams);
   }
 
+  var createdStreamEvent;
   function streamCreatedHandler(event) {
     console.debug('stream created', event);
+    createdStreamEvent = event;
     // Subscribe to any new streams that are created
 
     createSubscription(event.streams);
-    // remove once the teacher is found
-    //session.off("streamCreated", streamCreatedHandler);
+    // activate fullscreen button
+    if($("#user video").length > 0) {
+      $("#fullscreen").show();
+      $("#connect").hide();
+    }
   }
 
   function streamModifiedHandler(event) {
@@ -245,8 +264,16 @@
     console.debug("stream destroyed", event);
   }
 
+  function updateConnectionInfo() {
+    $('#connections span:first').text(20 - session.streams.length);
+    if(session.streams.length > 0) $("#connect").removeAttr('disabled');
+    else $("#connect").attr('disabled', 'disabled');
+  }
+
   function createSubscription(streams) {
     console.debug("subscription streams", streams);
+    updateConnectionInfo();
+
     if(streams.length > 0) {
       // sort streams
       streams = streams.sort(function(a, b) {
@@ -254,7 +281,9 @@
         return a.creationTime - b.creationTime; 
       });
 
-      subscribeToTeacher(streams);
+      if($("#preview video").length == 0) {
+        subscribeToTeacher(streams);
+      }
       subscribeToStudends(streams);
     }
   }
