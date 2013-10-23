@@ -65,15 +65,15 @@
 <div id="canvas">
   <div id="teacher"></div>
   <div id="user"></div>
-  <div id="students">
-    <!--
-      display list of users subscribed and 
-      who published their video/name
-    -->
-    <p>John Smith</p>
-    <p>Amanda Hamilton</p>
-    <p>Steve Jobs</p>
-  </div>
+</div>
+<div id="students">
+  <!--
+    display list of users subscribed and 
+    who published their video/name
+  -->
+  <div>John Smith</div>
+  <div>Amanda Hamilton</div>
+  <div>Steve Jobs</div>
 </div>
 <link href="/bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen"/>
 <link href="/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet" media="screen"/>
@@ -110,27 +110,30 @@
   };
 
   // Enable console logs for debugging
-  TB.setLogLevel(TB.DEBUG);
+  TB.setLogLevel(TB.WARN);
 
   // Initialize session, set up event listeners, and connect
   var session = TB.initSession(sessionId);
   session.on('sessionConnected', sessionConnectedHandler);
+  session.on("connectionCreated", connectionCreatedHandler);
   session.on('connectionDestroyed', connectionDestroyed);
   session.on('streamCreated', streamCreatedHandler);
+  session.on('streamModified', streamModifiedHandler);
+  session.on('streamDestroyed', streamDestroyedHandler);
   session.connect(apiKey, token);
 
   $('#video-check a').click(function(e) {
     $(this).parent().toggleClass('active');
   });
-  
   $(window).resize(function() {
     // reference to http://davidwalsh.name/fullscreen
-    if(document.webkitFullscreenElement == null &&
-       document.mozFullscreenElement == null) {
+    if(!document.webkitFullscreenElement &&
+       !document.mozFullscreenElement && 
+       !window.fullScreen) {
       // if user ends the fullscreen mode
       // make sure to hide canvas and show connection window
       $("#connectWindow").show();
-      $("#canvas").hide();
+      // $("#canvas").hide();
       // but keep the session do not republish it
     }
   });
@@ -163,13 +166,15 @@
     session.unsubscribe(subscriber);
     //todo: keep teacher element, but create inner div
     //      for every new connection
-    $('#teacher').append($('<div id="teacher-video"></div>'));
-    subscribeToStream(teacherStream, { 
-      width: screen.videoWidth(), 
-      height: screen.videoHeight(512, 384), 
-      div: $('#teacher div:first').get(0)
-    });
-    
+    // subscribe when no teacher
+    if($("#teacher video").length == 0) {
+      $('#teacher').append($('<div id="teacher-video"></div>'));
+      subscribeToStream(teacherStream, { 
+        width: screen.videoWidth(), 
+        height: screen.videoHeight(512, 384), 
+        div: $('#teacher div:first').get(0)
+      });
+    }
     // remove on window resize handler, we need it only once
     $(window).off('resize', enterFullScreenHandler);
   }
@@ -188,11 +193,20 @@
     }
   }
 
+  function connectionCreatedHandler(event) {
+    console.debug('connection created', event);
+  }
+
   //todo-debug
   //reconsider for the same session
   //give a warning, only needed when teacher is leaving the class
   function connectionDestroyed(event) {
-    console.debug(event)
+    console.debug("connection destroyed", event);
+    subscribeiber = null;
+    teacherStream = null;
+
+    //session.disconnect();
+    //session.connect(apiKey, token);
 
     //$("#connect").attr('disabled', 'disabled');
     //$('#connections span:first').text(20);
@@ -204,52 +218,93 @@
   }
   
   function sessionConnectedHandler(event) {
+    console.debug("session connected", event);
+
     if(event.streams.length > 0) {
       $('#connections span:first').text(20 - event.streams.length);
       $("#connect").removeAttr('disabled');
     }
 
-    for(var i = 0; i < event.streams.length; i++) {
-      // Create the div to put the subscriber element in to
-      if($("#canvas video").length < event.streams.length) {
-        // default preview the teacher
-        // Make sure to do it only when teacher is not yet added to main view
-        if($("#teacher video").length == 0) {
-          var teacher = $('<div id="stream-teacher"></div>');
-          $("#preview").append(teacher);
-          teacherStream = event.streams[i];
-          subscribeToStream(event.streams[i], { div: teacher.get(0) });
-        } else {
-          subscribeToStream(event.streams[i], { 
-            div: $("#students p").get(i - 1), 
-            subscribeToVideo: false
-          });
-        }
-      }
-    }
+    createSubscription(event.streams);
   }
 
   function streamCreatedHandler(event) {
+    console.debug('stream created', event);
     // Subscribe to any new streams that are created
-    sessionConnectedHandler(event);
+
+    createSubscription(event.streams);
+    // remove once the teacher is found
+    //session.off("streamCreated", streamCreatedHandler);
+  }
+
+  function streamModifiedHandler(event) {
+    console.debug('stream modified', event);
+  }
+
+  function streamDestroyedHandler(event) {
+    console.debug("stream destroyed", event);
+  }
+
+  function createSubscription(streams) {
+    console.debug("subscription streams", streams);
+    if(streams.length > 0) {
+      // sort streams
+      streams = streams.sort(function(a, b) {
+        // show the earliest first
+        return a.creationTime - b.creationTime; 
+      });
+
+      subscribeToTeacher(streams);
+      subscribeToStudends(streams);
+    }
+  }
+
+  function subscribeToTeacher(streams) {
+    // Make sure to do it only when teacher is not yet added to main view
+    if($("#teacher video").length == 0) {
+      var teacher = $('<div id="stream-teacher"></div>');
+      $("#preview").append(teacher);
+      teacherStream = streams.shift();
+      subscriber = subscribeToStream(teacherStream, { div: teacher.get(0) });
+    }
+  }
+
+  function subscribeToStudends(streams) {
+    // subscribe to other students audio
+    for(var i = 0; i < streams.length; i++) {
+      // Make sure we don't subscribe to ourself
+      if (streams[i].connection.connectionId == session.connection.connectionId) continue;
+      // dod not subscribe to teacher stream audio
+      if(streams[i] == teacherStream) continue;
+      // Create the div to put the subscriber element in to
+      var student = $('<div></div>').attr('id', streams[i].streamId);
+      $($("#students div").get(i)).html(student);
+      subscribeToStream(streams[i], { 
+        div: student.get(0),
+        subscribeToVideo: false
+      });
+    }
   }
 
   function subscribeToStream(stream, options) {
     options = $.extend({width: 120, height: 90}, options || {});
 
     // Subscribe to the stream
-    subscriber = session.subscribe(stream, options.div.id, options);
+    var subscriber = session.subscribe(stream, options.div.id, options);
     subscriber.setStyle({nameDisplayMode: 'on'})
 
     // check the session mute event
     session.on('signal:mute', function (e) {
       console.debug("mute event", e.data);
       publisher.publishAudio(e.data.sound);
-    });    
+    });
+
+    return subscriber;
   }
 </script>
 <script>
   // unified fullscreen method for cross browser
+  // todo: remove ugly method, supported are Chrome and Mozilla
   var pfx = ["webkit", "moz", "ms", "o", ""];
   function _checkMethod(obj, method) {
     var p = 0, m, t;

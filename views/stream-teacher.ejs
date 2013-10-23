@@ -118,6 +118,8 @@
   var apiKey = "<%= OpenTokKey %>";
   var sessionId = "<%= sessionId %>";
   var token = "<%= token %>";
+  var streams = [];
+  var subscribers = {};
   var publisher;
   var screen = {
     /*
@@ -141,21 +143,24 @@
   };
 
   // Enable console logs for debugging
-  TB.setLogLevel(TB.DEBUG);
+  TB.setLogLevel(TB.WARN);
 
   // Initialize session, set up event listeners, and connect
   var session = TB.initSession(sessionId);
   session.on('sessionConnected', sessionConnectedHandler);
   session.on("connectionCreated", connectionCreatedHandler);
+  session.on('connectionDestroyed', connectionDestroyed);
   session.on('streamCreated', streamCreatedHandler);
   session.on('streamModified', streamModifiedHandler);
+  session.on('streamDestroyed', streamDestroyedHandler);
   session.connect(apiKey, token);
 
-  $('#video-check a').click(function(e) {
+  $('#video-check a').click(function (e) {
     $(this).parent().toggleClass('active');
   });
 
-  $('#mute-all').click(function(e) {
+  $('#mute-all').click(function (event) {
+    console.debug("muteall click", event);
     // signal students to turn off their mike
     session.signal({
       type: 'mute',
@@ -166,10 +171,12 @@
     });
   });
 
-  $(window).resize(function() {
+  $(window).resize(function (event) {
+    console.debug("window resize", event);
     // reference to http://davidwalsh.name/fullscreen
-    if(document.webkitFullscreenElement == null &&
-       document.mozFullscreenElement == null) {
+    if(!document.webkitFullscreenElement &&
+       !document.mozFullscreenElement &&
+       !window.fullScreen) {
       // if user ends the fullscreen mode
       // make sure to hide canvas and show connection window
       $("#connectWindow").show();
@@ -213,12 +220,9 @@
     // remove on window resize handler, we need it only once
     $(window).off('resize', enterFullScreenHandler);
   }
-
-  function createPublisherHandler() {
-    // subscribe to resize window
-  }
   
-  function connectToStream(e) {
+  function connectToStream(event) {
+    console.debug("connect button", event);
     // enable full screen mode for canvas only
     // handle publisher then
     $(window).on('resize', enterFullScreenHandler);
@@ -241,9 +245,9 @@
   function connectionCreatedHandler(event) {
     console.debug('connection created', event);
   }
-  
-  function streamModifiedHandler(event) {
-    console.debug('stream modified', event);
+
+  function connectionDestroyed(event) {
+    console.debug("connection destroyed", event);
   }
   
   function streamCreatedHandler(event) {
@@ -252,9 +256,17 @@
     subscribeToStudents(event.streams);
   }
 
-  function subscribeToStudents(streams) {
-    console.debug("Create students");
+  function streamModifiedHandler(event) {
+    console.debug('stream modified', event);
+  }
+
+  function streamDestroyedHandler(event) {
+    console.debug("stream destroyed", event);
+  }
+
+  function subscribeToStudents(_streams) {
     // adjust scale for video
+    // todo- proportionally to amount of video streams
     var options = {
       width: screen.videoWidth(), 
       height: screen.videoHeight(120, 90)};
@@ -263,19 +275,39 @@
        width: options.width + 'px',
        height: options.height + 'px'});
 
-    for (var i = 0; i < streams.length; i++) {
+    // join new or existing student
+    streams = streams.concat(_streams);
+    var s = [].concat(streams);
+    for (var i = 0; i < s.length; i++) {
+      var stream = s[i];
       // Make sure we don't subscribe to ourself
-      if (streams[i].connection.connectionId == session.connection.connectionId) {
-        return;
+      if (stream.connection.connectionId == session.connection.connectionId) {
+        continue;
       }
-      
-      // Create the div to put the subscriber element in to
-      var student = $('<div></div>').attr('id', streams[i].streamId);
-      $($("#students .student").get($('#students video').length)).html(student);
-      // Subscribe to the stream
-      var subscriber = session.subscribe(streams[i], student.get(0).id, options);
-      subscriber.setStyle({nameDisplayMode: 'on'});
 
+      // Create the div to put the subscriber element in to
+      var student = $('<div></div>').attr('id', stream.streamId);
+      $($("#students .student").get(streams.indexOf(stream) - 1)).html(student);
+      
+      // check if subscription already made
+      if(subscribers[stream.streamId] != null) {
+        if(stream.destroyed) {
+          // remove not present streams and subscribers
+          streams.splice(streams.indexOf(stream), 1);
+          delete subscribers[stream.streamId];
+          continue;
+        }
+        session.unsubscribe(subscribers[stream.streamId]);
+        
+      } else if(streams.indexOf(stream) == -1){
+        streams.push(stream);
+      }
+
+      // Subscribe to the stream
+      var subscriber = session.subscribe(stream, student.get(0).id, options);
+      subscriber.setStyle({nameDisplayMode: 'on'});
+      // add new subscriber
+      subscribers[stream.streamId] = subscriber;
       //keep for testing purposes
       //subscriber.subscribeToAudio(false);
     }
@@ -283,6 +315,7 @@
 </script>
 <script>
   // unified fullscreen method for cross browser
+  // todo: remove ugly method, supported are Chrome and Mozilla
   var pfx = ["webkit", "moz", "ms", "o", ""];
   function _checkMethod(obj, method) {
     var p = 0, m, t;
